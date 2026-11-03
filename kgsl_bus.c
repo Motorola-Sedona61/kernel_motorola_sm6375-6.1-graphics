@@ -193,12 +193,16 @@ done:
 	validate_pwrlevels(device, pwr->ddr_table, pwr->ddr_table_count);
 
 	pwr->icc_path = of_icc_get(&pdev->dev, "gpu_icc_path");
-	if (IS_ERR(pwr->icc_path) && !gmu_core_scales_bandwidth(device)) {
-		WARN(1, "The CPU has no way to set the GPU bus levels\n");
+	if (IS_ERR(pwr->icc_path)) {
+		int ret = PTR_ERR(pwr->icc_path);
 
-		kfree(pwr->ddr_table);
-		pwr->ddr_table = NULL;
-		return PTR_ERR(pwr->icc_path);
+		pwr->icc_path = NULL;
+		if (!gmu_core_scales_bandwidth(device)) {
+			kfree(pwr->ddr_table);
+			pwr->ddr_table = NULL;
+			return dev_err_probe(&pdev->dev, ret,
+				"Cannot acquire GPU bus interconnect\n");
+		}
 	}
 
 	return 0;
